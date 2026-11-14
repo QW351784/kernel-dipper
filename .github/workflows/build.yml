@@ -29,16 +29,21 @@ jobs:
           git clone --depth=1 -b $KERNEL_VER https://github.com/torvalds/linux.git kernel
           cd kernel && git log -1 --oneline
 
-      - name: Apply dipper MR patch
+      - name: Apply dipper MR patch (DTS only)
         run: |
           curl -sSL "$MR_DIFF" -o /tmp/dipper.diff
           ls -l /tmp/dipper.diff
           cd kernel
-          git apply --3way /tmp/dipper.diff || {
-            echo "== 3way 失败，改用 -p1 宽松模式 =="
-            git apply -p1 --reject /tmp/dipper.diff || true
-            ls *.rej 2>/dev/null | head
-          }
+          # 只应用 DTS/DT binding 部分，音频等子系统在 6.18 已改动，冲突太多且会破坏 Makefile
+          git apply --include='arch/arm64/boot/dts/qcom/*' \
+                    --include='include/dt-bindings/*' \
+                    /tmp/dipper.diff || echo "部分 DTS 补丁未应用（将由 overlay 覆盖）"
+          git checkout -- . 2>/dev/null || true
+          # 重新只保留 DTS 改动（避免 .rej 残留影响）
+          git apply --include='arch/arm64/boot/dts/qcom/*' \
+                    --include='include/dt-bindings/*' \
+                    /tmp/dipper.diff || true
+          git status --short | head -20
 
       - name: Overlay our fixed DTS/panel files
         run: |
