@@ -55,7 +55,8 @@ jobs:
       - name: Build DTB
         run: |
           cd kernel
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- $DEVICE_DTB 2>&1 | tee /tmp/dtb.log | tail -40
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- qcom/sdm845-xiaomi-mi8-dipper.dtb 2>&1 | tee /tmp/dtb.log | tail -40
           ls -la arch/arm64/boot/dts/qcom/sdm845-xiaomi-mi8-dipper.dtb
 
       - name: Verify DTB
