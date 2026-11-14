@@ -1,0 +1,10 @@
+config INPUT_FINGERPRINT
+	bool "Fingerprint sensor framework"
+	help
+	  Enable generic fingerprint sensor framework support.
+
+config FINGERPRINT_GOODIX_TA
+	tristate "Fingerprint sensor Goodix support"
+	depends on INPUT_FINGERPRINT
+	help
+	  Support for Goodix fingerprint sensors (netlink data channel to HAL).
