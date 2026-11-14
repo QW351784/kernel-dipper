@@ -195,6 +195,26 @@
 		regulator-min-microvolt = <3700000>;
 		regulator-max-microvolt = <3700000>;
 	};
+
+	disp_vddio_vreg: disp-vddio-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vddio_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		regulator-boot-on;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&tlmm 23 GPIO_ACTIVE_HIGH>;
+		vin-supply = <&vph_pwr>;
+	};
+
+	battery: battery {
+		compatible = "simple-battery";
+
+		charge-full-design-microamp-hours = <3400000>;
+		voltage-min-design-microvolt = <3400000>;
+		voltage-max-design-microvolt = <4400000>;
+	};
 };
 
 // Audio Stream DMA Processor ("ADSP") designed to handle Direct Memory Access (DMA) operations for audio streams in SDM845
@@ -959,6 +979,23 @@
 	};
 };
 
+&i2c14 {
+	status = "okay";
+
+	/* Mi 8 uses ST FTS V521 at 0x49 (vendor tree: qupv3_se14_i2c / fts@49).
+	 * mainline binding is st,stmfts. stmfts issues STMFTS_SYSTEM_RESET in software,
+	 * so the reset line is held high by ts-reset-hog in &tlmm instead of a reset-gpios.
+	 */
+	touchscreen@49 {
+		compatible = "st,stmfts";
+		reg = <0x49>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <31 8>;	/* IRQ_TYPE_LEVEL_LOW */
+		vdd-supply = <&disp_vddio_vreg>;
+		avdd-supply = <&vreg_l28a_3p3>;
+	};
+};
+
 // REVIEW(Krey): Taken from beryllium, unsure if it's correct
 &pm8998_gpios {
 	vol_up_pin_a: vol-up-active-state {
@@ -997,16 +1034,14 @@
 &pmi8998_charger {
 	status = "okay";
 
-	// [6.18] battery 节点未定义，暂注释
-	// monitored-battery = <&battery>;
+	monitored-battery = <&battery>;
 };
 
 &pmi8998_fg {
 	status = "okay";
 
 	power-supplies = <&pmi8998_charger>;
-	// [6.18] battery 节点未定义，暂注释
-	// monitored-battery = <&battery>;
+	monitored-battery = <&battery>;
 };
 
 &pm8998_resin {
@@ -1073,6 +1108,14 @@
 
 &tlmm {
 	gpio-reserved-ranges = <0 4>, <81 4>;
+
+	/* Touch panel reset (GPIO32) must stay de-asserted-high; stmfts does not model it */
+	ts-reset-hog {
+		gpio-hog;
+		gpios = <32 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "ts-reset";
+	};
 
 	// REVIEW(Krey): Unsure..
 	// cam0_default: cam0_default {

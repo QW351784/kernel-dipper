@@ -6,14 +6,15 @@ on:
     branches: [main]
 
 env:
-  KERNEL_VER: v6.18
+  KERNEL_REPO: https://github.com/aosp-mirror/kernel_common.git
+  KERNEL_BRANCH: android17-6.18
   MR_DIFF: https://gitlab.com/sdm845-mainline/linux/-/merge_requests/102.diff
   DEVICE_DTB: qcom/sdm845-xiaomi-mi8-dipper.dtb
 
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 240
     steps:
       - name: Checkout repo (patch payload)
         uses: actions/checkout@v4
@@ -24,62 +25,117 @@ jobs:
           sudo apt-get install -y -qq build-essential flex bison bc libssl-dev libelf-dev \
             device-tree-compiler python3 zstd rsync gcc-aarch64-linux-gnu
           aarch64-linux-gnu-gcc --version | head -1
+          nproc
 
-      - name: Clone Linux v6.18
+      - name: Clone Android Common Kernel (android17-6.18)
         run: |
-          git clone --depth=1 -b $KERNEL_VER https://github.com/torvalds/linux.git kernel
-          cd kernel && git log -1 --oneline
+          git clone --depth=1 -b $KERNEL_BRANCH $KERNEL_REPO kernel
+          cd kernel && git log -1 --oneline && sed -n '1,5p' Makefile
 
       - name: Apply dipper MR patch (DTS only)
         run: |
           curl -sSL "$MR_DIFF" -o /tmp/dipper.diff
           ls -l /tmp/dipper.diff
           cd kernel
-          # 只应用 DTS/DT binding 部分，音频等子系统在 6.18 已改动，冲突太多且会破坏 Makefile
           git apply --include='arch/arm64/boot/dts/qcom/*' \
                     --include='include/dt-bindings/*' \
                     /tmp/dipper.diff || echo "部分 DTS 补丁未应用（将由 overlay 覆盖）"
-          git checkout -- . 2>/dev/null || true
-          # 重新只保留 DTS 改动（避免 .rej 残留影响）
-          git apply --include='arch/arm64/boot/dts/qcom/*' \
-                    --include='include/dt-bindings/*' \
-                    /tmp/dipper.diff || true
           git status --short | head -20
 
-      - name: Overlay our fixed DTS/panel files
+      - name: Overlay our fixed DTS/panel/headers
         run: |
-          cp -v dts/*.dtsi dts/*.dts kernel/arch/arm64/boot/dts/qcom/ 2>/dev/null || true
-          cp -v dts/pmi8998.dtsi kernel/arch/arm64/boot/dts/qcom/
-          cp -v drivers/gpu/drm/panel/panel-samsung-ea8074.c kernel/drivers/gpu/drm/panel/
+          cp -v dts/*.dtsi dts/*.dts kernel/arch/arm64/boot/dts/qcom/
           mkdir -p kernel/include/dt-bindings/input kernel/include/dt-bindings/sound
           cp -v dt-bindings/input/*.h kernel/include/dt-bindings/input/ 2>/dev/null || true
           cp -v dt-bindings/sound/*.h kernel/include/dt-bindings/sound/ 2>/dev/null || true
-          # 注册到 Makefile
+          cp -v drivers/gpu/drm/panel/panel-samsung-ea8074.c kernel/drivers/gpu/drm/panel/
           grep -q "sdm845-xiaomi-mi8-dipper.dtb" kernel/arch/arm64/boot/dts/qcom/Makefile && echo "dtb 已注册" || \
             echo 'dtb-$(CONFIG_ARCH_QCOM) += sdm845-xiaomi-mi8-dipper.dtb' >> kernel/arch/arm64/boot/dts/qcom/Makefile
+
+      - name: Configure kernel
+        run: |
+          cd kernel
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
+          ./scripts/config --file .config \
+            --enable TOUCHSCREEN_STMFTS \
+            --enable EROFS_FS \
+            --enable EROFS_FS_ZIP \
+            --enable ANDROID_BINDER_IPC \
+            --enable ANDROID_BINDERFS \
+            --enable DM_VERITY \
+            --enable DMABUF_HEAPS \
+            --enable DMABUF_HEAPS_SYSTEM \
+            --enable QCOM_SMBB \
+            --enable QCOM_TSENS \
+            --enable QCOM_WDT \
+            --enable CFG80211 \
+            --enable MAC80211 \
+            --enable ATH10K \
+            --enable ATH10K_SNOC \
+            --enable QCOM_Q6V5_MSS \
+            --enable QCOM_Q6V5_PAS \
+            --enable QCOM_PIL_INFO \
+            --enable QCOM_SYSMON \
+            --enable QCOM_APCS_IPC \
+            --enable SPMI_PMIC_ARB \
+            --enable REGULATOR_QCOM_SPMI \
+            --enable QCOM_RPMH \
+            --enable ARM_QCOM_CPUFREQ_HW \
+            --set-str LOCALVERSION "-MI8-ACK618"
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+          echo "=== 关键配置确认 ==="
+          grep -E "^CONFIG_(TOUCHSCREEN_STMFTS|EROFS_FS|ANDROID_BINDERFS|ANDROID_BINDER_IPC|DM_VERITY|ATH10K|QCOM_Q6V5_MSS|QCOM_SMBB|LOCALVERSION)=" .config
+
+      - name: Build Image
+        run: |
+          cd kernel
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image -j$(nproc) 2>&1 | tee /tmp/build.log | tail -30
+          ls -la arch/arm64/boot/Image
 
       - name: Build DTB
         run: |
           cd kernel
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- qcom/sdm845-xiaomi-mi8-dipper.dtb 2>&1 | tee /tmp/dtb.log | tail -40
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- $DEVICE_DTB 2>&1 | tee /tmp/dtb.log | tail -20
           ls -la arch/arm64/boot/dts/qcom/sdm845-xiaomi-mi8-dipper.dtb
 
-      - name: Verify DTB
+      - name: Verify artifacts
         run: |
           cd kernel
+          file arch/arm64/boot/Image
           file arch/arm64/boot/dts/qcom/sdm845-xiaomi-mi8-dipper.dtb
+          echo "=== Image 版本串 ==="
+          strings arch/arm64/boot/Image 2>/dev/null | grep -m3 -E "6\.18" || true
+          echo "=== Image 字节数 ==="
+          stat -c %s arch/arm64/boot/Image
+          echo "=== DTB 展开检查 ==="
           dtc -I dtb -O dts arch/arm64/boot/dts/qcom/sdm845-xiaomi-mi8-dipper.dtb 2>/dev/null > /tmp/mi8.dts
-          echo "=== model / compatible ==="
-          grep -m2 -E 'model =|compatible =' /tmp/mi8.dts
-          echo "=== regulator 节点数 ==="
-          grep -c "regulator-min-microvolt" /tmp/mi8.dts
-          echo "=== 总行数 ==="
-          wc -l /tmp/mi8.dts
+          grep -m2 -E 'model =' /tmp/mi8.dts
+          echo -n "st,stmfts 触摸节点数: "; grep -c "st,stmfts" /tmp/mi8.dts
+          echo -n "simple-battery 节点数: "; grep -c "simple-battery" /tmp/mi8.dts
+          echo -n "disp_vddio_vreg 节点数: "; grep -c "disp_vddio_vreg" /tmp/mi8.dts
 
-      - name: Upload DTB
+      - name: Collect artifacts
+        run: |
+          cd kernel
+          cp arch/arm64/boot/Image ../Image_out
+          cp arch/arm64/boot/dts/qcom/sdm845-xiaomi-mi8-dipper.dtb ../mi8-dipper.dtb
+          ls -la ../Image_out ../mi8-dipper.dtb
+
+      - name: Upload Image + DTB
         uses: actions/upload-artifact@v4
         with:
-          name: mi8-dtb
-          path: kernel/arch/arm64/boot/dts/qcom/sdm845-xiaomi-mi8-dipper.dtb
-          retention-days: 7
+          name: mi8-ack618-Image
+          path: |
+            Image_out
+            mi8-dipper.dtb
+          retention-days: 30
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-fail
+          path: |
+            /tmp/build.log
+            /tmp/dtb.log
+          retention-days: 3
