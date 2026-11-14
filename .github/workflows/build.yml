@@ -1,0 +1,78 @@
+name: build-dipper
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+env:
+  KERNEL_VER: v6.18
+  MR_DIFF: https://gitlab.com/sdm845-mainline/linux/-/merge_requests/102.diff
+  DEVICE_DTB: qcom/sdm845-xiaomi-mi8-dipper.dtb
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repo (patch payload)
+        uses: actions/checkout@v4
+
+      - name: Setup base package
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential flex bison bc libssl-dev libelf-dev \
+            device-tree-compiler python3 zstd rsync
+
+      - name: Clone Linux v6.18
+        run: |
+          git clone --depth=1 -b $KERNEL_VER https://github.com/torvalds/linux.git kernel
+          cd kernel && git log -1 --oneline
+
+      - name: Apply dipper MR patch
+        run: |
+          curl -sSL "$MR_DIFF" -o /tmp/dipper.diff
+          ls -l /tmp/dipper.diff
+          cd kernel
+          git apply --3way /tmp/dipper.diff || {
+            echo "== 3way 失败，改用 -p1 宽松模式 =="
+            git apply -p1 --reject /tmp/dipper.diff || true
+            ls *.rej 2>/dev/null | head
+          }
+
+      - name: Overlay our fixed DTS/panel files
+        run: |
+          cp -v dts/*.dtsi dts/*.dts kernel/arch/arm64/boot/dts/qcom/ 2>/dev/null || true
+          cp -v dts/pmi8998.dtsi kernel/arch/arm64/boot/dts/qcom/
+          cp -v drivers/gpu/drm/panel/panel-samsung-ea8074.c kernel/drivers/gpu/drm/panel/
+          mkdir -p kernel/include/dt-bindings/input kernel/include/dt-bindings/sound
+          cp -v dt-bindings/input/*.h kernel/include/dt-bindings/input/ 2>/dev/null || true
+          cp -v dt-bindings/sound/*.h kernel/include/dt-bindings/sound/ 2>/dev/null || true
+          # 注册到 Makefile
+          grep -q "sdm845-xiaomi-mi8-dipper.dtb" kernel/arch/arm64/boot/dts/qcom/Makefile && echo "dtb 已注册" || \
+            echo 'dtb-$(CONFIG_ARCH_QCOM) += sdm845-xiaomi-mi8-dipper.dtb' >> kernel/arch/arm64/boot/dts/qcom/Makefile
+
+      - name: Build DTB
+        run: |
+          cd kernel
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- $DEVICE_DTB 2>&1 | tee /tmp/dtb.log | tail -40
+          ls -la arch/arm64/boot/dts/qcom/sdm845-xiaomi-mi8-dipper.dtb
+
+      - name: Verify DTB
+        run: |
+          cd kernel
+          file arch/arm64/boot/dts/qcom/sdm845-xiaomi-mi8-dipper.dtb
+          dtc -I dtb -O dts arch/arm64/boot/dts/qcom/sdm845-xiaomi-mi8-dipper.dtb 2>/dev/null > /tmp/mi8.dts
+          echo "=== model / compatible ==="
+          grep -m2 -E 'model =|compatible =' /tmp/mi8.dts
+          echo "=== regulator 节点数 ==="
+          grep -c "regulator-min-microvolt" /tmp/mi8.dts
+          echo "=== 总行数 ==="
+          wc -l /tmp/mi8.dts
+
+      - name: Upload DTB
+        uses: actions/upload-artifact@v4
+        with:
+          name: mi8-dtb
+          path: kernel/arch/arm64/boot/dts/qcom/sdm845-xiaomi-mi8-dipper.dtb
+          retention-days: 7
