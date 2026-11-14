@@ -215,6 +215,40 @@
 		voltage-min-design-microvolt = <3400000>;
 		voltage-max-design-microvolt = <4400000>;
 	};
+
+	/*
+	 * 指纹供电：官方 dipper-p0.dtsi 为 fp_vdd_vreg / tlmm 94 /
+	 * startup-delay 4000us / enable-active-high。
+	 * 驱动侧 GF_PW_CTL 未开启（保持官方源码原样），此处用 regulator-fixed
+	 * 在开机即上电，避免指纹芯片无电。
+	 */
+	fp_vdd_vreg: fp-vdd-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "fp_vdd_vreg";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&tlmm 94 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <4000>;
+		enable-active-high;
+		regulator-boot-on;
+		vin-supply = <&vph_pwr>;
+	};
+
+	/*
+	 * Goodix 指纹（platform bus，非 SPI）。
+	 * 属性名与驱动 platform.c 完全一致：
+	 *   gooidx,gpio-reset（驱动里就是这个拼法，官方 DTS 同拼）
+	 *   goodix,gpio-irq
+	 *   fp-gpio-pwr（GF_PW_CTL 未开时不读取，保留以对齐官方 DTS）
+	 */
+	fingerprint_goodix {
+		compatible = "goodix,fingerprint";
+		gooidx,gpio-reset = <&tlmm 37 0x0>;
+		goodix,gpio-irq = <&tlmm 79 0x0>;
+		fp-gpio-pwr = <&tlmm 94 0>;
+		vdd-supply = <&fp_vdd_vreg>;
+		status = "ok";
+	};
 };
 
 // Audio Stream DMA Processor ("ADSP") designed to handle Direct Memory Access (DMA) operations for audio streams in SDM845
