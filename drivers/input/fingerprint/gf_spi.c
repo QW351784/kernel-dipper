@@ -45,6 +45,14 @@
 
 #include "gf_spi.h"
 
+/* [6.18] fb_notifier 的 blank 事件在 6.x 已被移除，fb.h 只剩
+ * FB_EVENT_FB_REGISTERED(0x05) / FB_EVENT_FB_UNREGISTERED(0x06)。
+ * 这里补回历史宏值以维持编译，回调不会收到该事件，
+ * 息屏/亮屏联动属于降级状态（不影响指纹驱动自身工作）。 */
+#ifndef FB_EVENT_BLANK
+#define FB_EVENT_BLANK 0x0a
+#endif
+
 #if defined(USE_SPI_BUS)
 #include <linux/spi/spi.h>
 #include <linux/spi/spidev.h>
