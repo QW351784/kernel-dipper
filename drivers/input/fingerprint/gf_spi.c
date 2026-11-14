@@ -42,7 +42,6 @@
 #include <linux/pm_qos.h>
 #include <linux/cpufreq.h>
 #include <linux/pm_wakeup.h>
-#include <drm/drm_bridge.h>
 
 #include "gf_spi.h"
 
@@ -74,7 +73,7 @@ static int SPIDEV_MAJOR;
 static DECLARE_BITMAP(minors, N_SPI_MINORS);
 static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
-static struct wakeup_source fp_wakelock;
+static struct wakeup_source *fp_wakelock;
 static struct gf_dev gf;
 
 struct gf_key_map maps[] = {
@@ -364,9 +363,9 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return -ENODEV;
 
 	if (_IOC_DIR(cmd) & _IOC_READ)
-		retval = !access_ok(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
+		retval = !access_ok((void __user *)arg, _IOC_SIZE(cmd));
 	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		retval = !access_ok(VERIFY_READ, (void __user *)arg, _IOC_SIZE(cmd));
+		retval = !access_ok((void __user *)arg, _IOC_SIZE(cmd));
 	if (retval)
 		return -EFAULT;
 
@@ -493,7 +492,7 @@ static long gf_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 static void notification_work(struct work_struct *work)
 {
 	pr_debug("%s unblank\n", __func__);
-	dsi_bridge_interface_enable(FP_UNLOCK_REJECTION_TIMEOUT);
+	/* [6.18] dsi_bridge_interface_enable 是高通私有 API，主线无对应实现，此处禁用 */
 }
 
 static irqreturn_t gf_irq(int irq, void *handle)
@@ -504,7 +503,7 @@ static irqreturn_t gf_irq(int irq, void *handle)
 	uint32_t key_input = 0;
 	temp[0] = GF_NET_EVENT_IRQ;
 	pr_debug("%s enter\n", __func__);
-	__pm_wakeup_event(&fp_wakelock, WAKELOCK_HOLD_TIME);
+	__pm_wakeup_event(fp_wakelock, WAKELOCK_HOLD_TIME);
 	sendnlmsg(temp);
 	if ((gf_dev->wait_finger_down == true) && (gf_dev->device_available == 1) && (gf_dev->fb_black == 1)) {
 		key_input = KEY_RIGHT;
@@ -687,15 +686,15 @@ static int goodix_fb_state_chg_callback(struct notifier_block *nb,
 	unsigned int blank;
 	char temp[4] = { 0x0 };
 
-	if (val != DRM_EVENT_BLANK)
+	if (val != FB_EVENT_BLANK)
 		return 0;
 	pr_debug("[info] %s go to the goodix_fb_state_chg_callback value = %d\n",
 			__func__, (int)val);
 	gf_dev = container_of(nb, struct gf_dev, notifier);
-	if (evdata && evdata->data && val == DRM_EVENT_BLANK && gf_dev) {
+	if (evdata && evdata->data && val == FB_EVENT_BLANK && gf_dev) {
 		blank = *(int *)(evdata->data);
 		switch (blank) {
-		case DRM_BLANK_POWERDOWN:
+		case FB_BLANK_POWERDOWN:
 			if (gf_dev->device_available == 1) {
 				gf_dev->fb_black = 1;
 				gf_dev->wait_finger_down = true;
@@ -709,7 +708,7 @@ static int goodix_fb_state_chg_callback(struct notifier_block *nb,
 #endif
 			}
 			break;
-		case DRM_BLANK_UNBLANK:
+		case FB_BLANK_UNBLANK:
 			if (gf_dev->device_available == 1) {
 				gf_dev->fb_black = 0;
 #if defined(GF_NETLINK_ENABLE)
@@ -822,11 +821,11 @@ static int gf_probe(struct platform_device *pdev)
 #endif
 
 	gf_dev->notifier = goodix_noti_block;
-	drm_register_client(&gf_dev->notifier);
+	fb_register_client(&gf_dev->notifier);
 
 	gf_dev->irq = gf_irq_num(gf_dev);
 
-	wakeup_source_init(&fp_wakelock, "fp_wakelock");
+	fp_wakelock = wakeup_source_register(NULL, "fp_wakelock");
 	pr_debug("version V%d.%d.%02d\n", VER_MAJOR, VER_MINOR, PATCH_LEVEL);
 
 	return status;
@@ -859,12 +858,12 @@ error_hw:
 #if defined(USE_SPI_BUS)
 static int gf_remove(struct spi_device *spi)
 #elif defined(USE_PLATFORM_BUS)
-static int gf_remove(struct platform_device *pdev)
+static void gf_remove(struct platform_device *pdev)
 #endif
 {
 	struct gf_dev *gf_dev = &gf;
 
-	wakeup_source_trash(&fp_wakelock);
+	wakeup_source_unregister(fp_wakelock);
 	/* make sure ops on existing fds can abort cleanly */
 	if (gf_dev->irq)
 		free_irq(gf_dev->irq, gf_dev);
@@ -882,10 +881,10 @@ static int gf_remove(struct platform_device *pdev)
 		gf_cleanup(gf_dev);
 
 
-	drm_unregister_client(&gf_dev->notifier);
+	fb_unregister_client(&gf_dev->notifier);
 	mutex_unlock(&device_list_lock);
 
-	return 0;
+	/* [6.18] remove 返回 void */
 }
 
 static struct of_device_id gx_match_table[] = {
@@ -923,7 +922,7 @@ static int __init gf_init(void)
 		return status;
 	}
 	SPIDEV_MAJOR = status;
-	gf_class = class_create(THIS_MODULE, CLASS_NAME);
+	gf_class = class_create(CLASS_NAME);
 	if (IS_ERR(gf_class)) {
 		unregister_chrdev(SPIDEV_MAJOR, gf_driver.driver.name);
 		pr_warn("Failed to create class.\n");
