@@ -426,7 +426,7 @@ static long ion_ioctl_alloc(unsigned long arg)
 	}
 
 	data.handle = fd;
-	if (copy_to_user((void __user *)arg, &data, sizeof(data)) < 0)
+	if (copy_to_user((void __user *)arg, &data, sizeof(data)))
 		return -EFAULT;
 
 	return 0;
@@ -441,7 +441,7 @@ static long ion_ioctl_fd_passthrough(unsigned long arg)
 
 	/* handle is already our fd; hand it straight back */
 	data.fd = (__s32)data.handle;
-	if (copy_to_user((void __user *)arg, &data, sizeof(data)) < 0)
+	if (copy_to_user((void __user *)arg, &data, sizeof(data)))
 		return -EFAULT;
 
 	return 0;
@@ -524,7 +524,7 @@ static long ion_ioctl_heap_query(unsigned long arg)
 
 	query.cnt = count;
 	ret = copy_to_user((void __user *)arg, &query, sizeof(query));
-	if (ret < 0)
+	if (ret)
 		return -EFAULT;
 
 	return 0;
