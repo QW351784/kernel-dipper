@@ -66,6 +66,13 @@ jobs:
             printf '\nobj-y += fingerprint/\n' >> kernel/drivers/input/Makefile
           grep -q "sdm845-xiaomi-mi8-dipper.dtb" kernel/arch/arm64/boot/dts/qcom/Makefile && echo "dtb 已注册" || \
             echo 'dtb-$(CONFIG_ARCH_QCOM) += sdm845-xiaomi-mi8-dipper.dtb' >> kernel/arch/arm64/boot/dts/qcom/Makefile
+          # ION：兼容层（DMA-BUF 后端），给老 gralloc / QSEECom 用
+          cp -v uapi/ion.h kernel/include/uapi/linux/ion.h
+          cp -v drivers/misc/ion_compat.c kernel/drivers/misc/ion_compat.c
+          grep -q "config ION_COMPAT" kernel/drivers/misc/Kconfig || \
+            printf '\nconfig ION_COMPAT\n\ttristate "ION compatibility shim over DMA-BUF"\n\tdepends on DMA_SHARED_BUFFER\n\thelp\n\t  Recreates legacy /dev/ion on top of DMA-BUF.\n' >> kernel/drivers/misc/Kconfig
+          grep -q "CONFIG_ION_COMPAT" kernel/drivers/misc/Makefile || \
+            printf '\nobj-$(CONFIG_ION_COMPAT) += ion_compat.o\n' >> kernel/drivers/misc/Makefile
 
       - name: Configure kernel
         run: |
@@ -100,6 +107,7 @@ jobs:
             --enable V4L2_CCI_I2C \
             --enable INPUT_FINGERPRINT \
             --enable FINGERPRINT_GOODIX_TA \
+            --enable ION_COMPAT \
             --set-str LOCALVERSION "-MI8-ACK618"
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           echo "=== 关键配置确认 ==="
