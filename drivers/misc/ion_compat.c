@@ -556,7 +556,6 @@ static const struct file_operations ion_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = ion_ioctl,
 	.compat_ioctl = ion_ioctl,
-	.llseek = no_llseek,
 };
 
 static struct miscdevice ion_miscdev = {
