@@ -112,6 +112,9 @@ jobs:
             --enable REGULATOR_QCOM_LABIBB \
             --enable DMABUF_HEAPS_CMA \
             --enable DRM \
+            --enable QCOM_OCMEM \
+            --enable QCOM_LLCC \
+            --enable RPMSG_QCOM_GLINK_SMEM \
             --enable DRM_MSM \
             --enable DRM_MSM_DSI \
             --enable DRM_MSM_DPU \
