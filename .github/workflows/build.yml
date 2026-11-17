@@ -111,6 +111,17 @@ jobs:
             --enable DRM_PANEL_SAMSUNG_EA8074 \
             --enable REGULATOR_QCOM_LABIBB \
             --enable DMABUF_HEAPS_CMA \
+            --enable DRM \
+            --enable DRM_MSM \
+            --enable DRM_MSM_DSI \
+            --enable DRM_MSM_DPU \
+            --enable SCSI_UFS_QCOM \
+            --enable PHY_QCOM_QMP \
+            --enable QCOM_Q6V5_PAS \
+            --enable QCOM_Q6V5_MSS \
+            --enable MEDIA_SUPPORT \
+            --enable VIDEO_DEV \
+            --enable VIDEO_QCOM_CAMSS \
             --enable V4L2_CCI_I2C \
             --enable INPUT_FINGERPRINT \
             --enable FINGERPRINT_GOODIX_TA \
