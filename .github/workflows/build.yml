@@ -122,6 +122,16 @@ jobs:
             --enable PHY_QCOM_QMP \
             --enable QCOM_Q6V5_PAS \
             --enable QCOM_Q6V5_MSS \
+            --enable SND \
+            --enable SND_SOC \
+            --enable SND_SOC_QCOM \
+            --enable SND_SOC_WCD934X \
+            --enable SND_SOC_QDSP6 \
+            --enable SND_SOC_MSM8916_WCD_DIGITAL \
+            --enable BT \
+            --enable BT_QCA \
+            --enable ATH10K \
+            --enable ATH10K_PCI \
             --enable MEDIA_SUPPORT \
             --enable VIDEO_DEV \
             --enable VIDEO_QCOM_CAMSS \
