@@ -49,10 +49,14 @@ jobs:
           cp -v dt-bindings/input/*.h kernel/include/dt-bindings/input/ 2>/dev/null || true
           cp -v dt-bindings/sound/*.h kernel/include/dt-bindings/sound/ 2>/dev/null || true
           cp -v drivers/gpu/drm/panel/panel-samsung-ea8074.c kernel/drivers/gpu/drm/panel/
+          grep -q "config DRM_PANEL_SAMSUNG_EA8074" kernel/drivers/gpu/drm/panel/Kconfig || \
+            printf '\nconfig DRM_PANEL_SAMSUNG_EA8074\n\ttristate "Samsung EA8074 MIPI-DSI panel"\n\tdepends on DRM\n\thelp\n\t  Samsung EA8074 AMOLED panel, used on Xiaomi Mi 8 (dipper).\n' >> kernel/drivers/gpu/drm/panel/Kconfig
+          grep -q "DRM_PANEL_SAMSUNG_EA8074" kernel/drivers/gpu/drm/panel/Makefile || \
+            echo 'obj-$(CONFIG_DRM_PANEL_SAMSUNG_EA8074) += panel-samsung-ea8074.o' >> kernel/drivers/gpu/drm/panel/Makefile
           # 相机：IMX363（6.18 上游没有，用 mainline 版驱动）
           cp -v drivers/media/i2c/imx363.c kernel/drivers/media/i2c/
           grep -q "config VIDEO_IMX363" kernel/drivers/media/i2c/Kconfig || \
-            printf '\nconfig VIDEO_IMX363\n\ttristate "Sony IMX363 sensor support"\n\tdepends on I2C && VIDEO_V4L2\n\tselect V4L2_CCI_I2C\n\thelp\n\t  Sony IMX363 12MP CMOS sensor (mainline v4l2-cci driver)\n' >> kernel/drivers/media/i2c/Kconfig
+            printf '\nconfig VIDEO_IMX363\n\ttristate "Sony IMX363 sensor support"\n\tselect V4L2_CCI_I2C\n\thelp\n\t  Sony IMX363 12MP CMOS sensor for Xiaomi Mi 8 (dipper).\n' >> kernel/drivers/media/i2c/Kconfig
           grep -q "CONFIG_VIDEO_IMX363" kernel/drivers/media/i2c/Makefile || \
             echo 'obj-$(CONFIG_VIDEO_IMX363) += imx363.o' >> kernel/drivers/media/i2c/Makefile
           # 指纹：Goodix（platform bus）
@@ -104,6 +108,9 @@ jobs:
             --enable QCOM_RPMH \
             --enable ARM_QCOM_CPUFREQ_HW \
             --enable VIDEO_IMX363 \
+            --enable DRM_PANEL_SAMSUNG_EA8074 \
+            --enable REGULATOR_QCOM_LABIBB \
+            --enable DMABUF_HEAPS_CMA \
             --enable V4L2_CCI_I2C \
             --enable INPUT_FINGERPRINT \
             --enable FINGERPRINT_GOODIX_TA \
@@ -111,7 +118,7 @@ jobs:
             --set-str LOCALVERSION "-MI8-ACK618"
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           echo "=== 关键配置确认 ==="
-          grep -E "^CONFIG_(TOUCHSCREEN_STMFTS|EROFS_FS|ANDROID_BINDERFS|ANDROID_BINDER_IPC|DM_VERITY|ATH10K|QCOM_Q6V5_MSS|QCOM_SMBB|LOCALVERSION)=" .config
+          grep -E "^(CONFIG_(TOUCHSCREEN_STMFTS|EROFS_FS|ANDROID_BINDERFS|ANDROID_BINDER_IPC|DM_VERITY|ATH10K|QCOM_Q6V5_MSS|QCOM_SMBB|LOCALVERSION|DRM_PANEL_SAMSUNG_EA8074|REGULATOR_QCOM_LABIBB|VIDEO_IMX363|DMABUF_HEAPS|DMABUF_HEAPS_CMA|ION_COMPAT|INPUT_FINGERPRINT)=|# CONFIG_(DRM_PANEL_SAMSUNG_EA8074|REGULATOR_QCOM_LABIBB|VIDEO_IMX363) is not set)" .config
 
       - name: Build Image
         run: |
