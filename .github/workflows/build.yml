@@ -122,16 +122,28 @@ jobs:
             --enable PHY_QCOM_QMP \
             --enable QCOM_Q6V5_PAS \
             --enable QCOM_Q6V5_MSS \
+            --enable SOUND \
             --enable SND \
             --enable SND_SOC \
             --enable SND_SOC_QCOM \
+            --enable SND_SOC_SDM845 \
             --enable SND_SOC_WCD934X \
             --enable SND_SOC_QDSP6 \
             --enable SND_SOC_MSM8916_WCD_DIGITAL \
+            --enable QCOM_APR \
+            --enable SLIMBUS \
+            --enable MFD_WCD934X \
+            --enable SOUNDWIRE \
             --enable BT \
             --enable BT_QCA \
+            --enable BT_HCIUART \
+            --enable BT_HCIUART_QCA \
             --enable ATH10K \
             --enable ATH10K_PCI \
+            --enable ATH10K_SNOC \
+            --enable NVMEM \
+            --enable POWER_SEQUENCING \
+            --enable SERIAL_DEV_BUS \
             --enable MEDIA_SUPPORT \
             --enable VIDEO_DEV \
             --enable VIDEO_QCOM_CAMSS \
@@ -143,6 +155,10 @@ jobs:
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           echo "=== 关键配置确认 ==="
           grep -E "^(CONFIG_(TOUCHSCREEN_STMFTS|EROFS_FS|ANDROID_BINDERFS|ANDROID_BINDER_IPC|DM_VERITY|ATH10K|QCOM_Q6V5_MSS|QCOM_SMBB|LOCALVERSION|DRM_PANEL_SAMSUNG_EA8074|REGULATOR_QCOM_LABIBB|VIDEO_IMX363|DMABUF_HEAPS|DMABUF_HEAPS_CMA|ION_COMPAT|INPUT_FINGERPRINT)=|# CONFIG_(DRM_PANEL_SAMSUNG_EA8074|REGULATOR_QCOM_LABIBB|VIDEO_IMX363) is not set)" .config
+          echo "=== 音频/蓝牙/WiFi 全链 ==="
+          grep -E "^CONFIG_(SOUND|SND|SND_SOC|SND_SOC_SDM845|SND_SOC_QDSP6|SND_SOC_WCD934X|QCOM_APR|SLIMBUS|MFD_WCD934X|SOUNDWIRE|BT|BT_QCA|BT_HCIUART|BT_HCIUART_QCA|ATH10K|ATH10K_PCI|MAC80211|CFG80211)=" .config
+          echo "=== 显示/存储/远程处理器 ==="
+          grep -E "^CONFIG_(DRM|DRM_MSM|DRM_MSM_DSI|DRM_MSM_DPU|SCSI_UFS_QCOM|PHY_QCOM_QMP|QCOM_Q6V5_PAS|QCOM_Q6V5_MSS|VIDEO_QCOM_CAMSS|VIDEO_IMX363)=" .config
 
       - name: Build Image
         run: |
