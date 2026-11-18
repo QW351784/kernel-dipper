@@ -134,6 +134,9 @@ jobs:
             --enable SLIMBUS \
             --enable MFD_WCD934X \
             --enable SOUNDWIRE \
+            --enable RFKILL \
+            --enable CFG80211 \
+            --enable MAC80211 \
             --enable BT \
             --enable BT_QCA \
             --enable BT_HCIUART \
