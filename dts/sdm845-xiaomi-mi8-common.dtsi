@@ -982,7 +982,9 @@
 /* Modem/wifi*/
 &mss_pil {
 	status = "okay";
-	firmware-name = "qcom/sdm845/mi8/mba.mbn", "qcom/sdm845/mi8/modem.mbn";
+	/* 小米 8 的 modem 分区挂到 /vendor/firmware_mnt（vfat shortname=lower），
+	   实际文件名是 image/mba.mbn、image/modem.mdt 加 image/modem.b00~b28 */
+	firmware-name = "mba.mbn", "modem.mdt";
 };
 
 &ipa {

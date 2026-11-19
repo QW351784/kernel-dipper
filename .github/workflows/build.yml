@@ -78,6 +78,22 @@ jobs:
           grep -q "CONFIG_ION_COMPAT" kernel/drivers/misc/Makefile || \
             printf '\nobj-$(CONFIG_ION_COMPAT) += ion_compat.o\n' >> kernel/drivers/misc/Makefile
 
+      - name: Patch q6v5 to wait for /vendor
+        run: |
+          python3 - <<'PY'
+          p = 'kernel/drivers/remoteproc/qcom_q6v5_mss.c'
+          s = open(p, encoding='utf-8').read()
+          if 'mi8_vendor_wait' not in s:
+              needle = 'static int q6v5_probe(struct platform_device *pdev)\n{'
+              if needle in s:
+                  s = s.replace(needle, needle + '\n\t/* MI8: /vendor 挂载晚于内置驱动 probe，等挂好再取固件 */\n\t/* mi8_vendor_wait */\n\tmsleep(20000);\n', 1)
+                  open(p, 'w', encoding='utf-8').write(s)
+                  print('patched: 20s wait in q6v5_probe')
+              else:
+                  print('WARNING: q6v5_probe not found')
+          PY
+          grep -n -A3 'mi8_vendor_wait' kernel/drivers/remoteproc/qcom_q6v5_mss.c || echo "未打上"
+
       - name: Configure kernel
         run: |
           cd kernel
@@ -196,6 +212,8 @@ jobs:
           echo -n "st,stmfts 触摸节点数: "; grep -c "st,stmfts" /tmp/mi8.dts
           echo -n "simple-battery 节点数: "; grep -c "simple-battery" /tmp/mi8.dts
           echo -n "disp_vddio_vreg 节点数: "; grep -c "disp_vddio_vreg" /tmp/mi8.dts
+          echo -n "mss 固件名: "; grep -A2 "mss-pil" /tmp/mi8.dts | grep -m1 firmware-name || echo "未找到"
+          echo -n "ipa 节点: "; grep -c "gsi-loader" /tmp/mi8.dts
 
       - name: Collect artifacts
         run: |
