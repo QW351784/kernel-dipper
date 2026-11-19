@@ -134,6 +134,10 @@ jobs:
             --enable SLIMBUS \
             --enable MFD_WCD934X \
             --enable SOUNDWIRE \
+            --enable QCOM_IPA \
+            --enable RMNET \
+            --enable QCOM_RPROC_COMMON \
+            --enable NET_DEVLINK \
             --enable RFKILL \
             --enable CFG80211 \
             --enable MAC80211 \
@@ -162,6 +166,8 @@ jobs:
           grep -E "^CONFIG_(SOUND|SND|SND_SOC|SND_SOC_SDM845|SND_SOC_QDSP6|SND_SOC_WCD934X|QCOM_APR|SLIMBUS|MFD_WCD934X|SOUNDWIRE|BT|BT_QCA|BT_HCIUART|BT_HCIUART_QCA|ATH10K|ATH10K_PCI|MAC80211|CFG80211)=" .config
           echo "=== 显示/存储/远程处理器 ==="
           grep -E "^CONFIG_(DRM|DRM_MSM|DRM_MSM_DSI|DRM_MSM_DPU|SCSI_UFS_QCOM|PHY_QCOM_QMP|QCOM_Q6V5_PAS|QCOM_Q6V5_MSS|VIDEO_QCOM_CAMSS|VIDEO_IMX363)=" .config
+          echo "=== 基带链路 ==="
+          grep -E "^CONFIG_(QCOM_Q6V5_MSS|QCOM_Q6V5_COMMON|QCOM_RPROC_COMMON|QCOM_IPA|RMNET|QCOM_QMI_HELPERS|QCOM_MDT_LOADER|QCOM_SCM|QCOM_SMEM|RPMSG_QCOM_SMD|QCOM_IOMMU|ARM_SMMU)=" .config
 
       - name: Build Image
         run: |
