@@ -1401,6 +1401,22 @@
 		};
 	};
 
+	/* 外放：TI TAS2559 smart PA，走 QUAT_MI2S（与上面的 pinctrl 一致） */
+	spk-dai-link {
+		link-name = "TAS2559 Playback";
+		cpu {
+			sound-dai = <&q6afedai QUAT_MI2S_RX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+
+		codec {
+			sound-dai = <&tas2559_codec 0>;
+		};
+	};
+
 	slim-dai-link {
 		link-name = "SLIM Playback";
 		cpu {
