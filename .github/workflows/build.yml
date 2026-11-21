@@ -83,15 +83,6 @@ jobs:
             printf '\nconfig BATTERY_PMI8998_FG\n\ttristate "Qualcomm PMI8998 PMIC fuel gauge driver"\n\tdepends on MFD_SPMI_PMIC\n\thelp\n\t  PMI8998 fuel gauge on Xiaomi Mi 8 (dipper).\n' >> kernel/drivers/power/supply/Kconfig
           grep -q "BATTERY_PMI8998_FG" kernel/drivers/power/supply/Makefile || \
             echo 'obj-$(CONFIG_BATTERY_PMI8998_FG) += pmi8998_fg.o' >> kernel/drivers/power/supply/Makefile
-          # 外放 smart PA：TI TAS2559（主线没有此驱动，用 TI 原厂 GPL 驱动）
-          mkdir -p kernel/sound/soc/codecs
-          cp -v sound/soc/codecs/tas2559.c sound/soc/codecs/tas2559.h kernel/sound/soc/codecs/
-          grep -q "config SND_SOC_TAS2559" kernel/sound/soc/codecs/Kconfig || \
-            printf '\nconfig SND_SOC_TAS2559\n\ttristate "Texas Instruments TAS2559 Smart Amplifier"\n\tdepends on I2C\n\thelp\n\t  TAS2559 smart amplifier (Xiaomi Mi 8 dipper).\n' >> kernel/sound/soc/codecs/Kconfig
-          grep -q "SND_SOC_TAS2559" kernel/sound/soc/codecs/Makefile || \
-            echo 'obj-$(CONFIG_SND_SOC_TAS2559) += snd-soc-tas2559.o' >> kernel/sound/soc/codecs/Makefile
-          grep -q "snd-soc-tas2559-y" kernel/sound/soc/codecs/Makefile || \
-            echo 'snd-soc-tas2559-y := tas2559.o' >> kernel/sound/soc/codecs/Makefile
 
       - name: Patch q6v5 to wait for /vendor
         run: |
@@ -140,7 +131,6 @@ jobs:
             --enable MFD_SPMI_PMIC \
             --enable IIO \
             --enable BATTERY_PMI8998_FG \
-            --enable SND_SOC_TAS2559 \
             --enable REGULATOR_QCOM_SPMI \
             --enable QCOM_RPMH \
             --enable ARM_QCOM_CPUFREQ_HW \
