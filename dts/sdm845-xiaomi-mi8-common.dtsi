@@ -208,6 +208,39 @@
 		vin-supply = <&vph_pwr>;
 	};
 
+	/*
+	 * 后摄供电：官方 dipper 用 cam0_avdd(2.8V, tlmm40 使能) / cam0_dvdd(1.2V) / cam_iovdd(1.8V)。
+	 * imx363 主线驱动 devm_regulator_bulk_get 强制要 vana + vdig 两路，缺了 probe 直接失败。
+	 */
+	cam0_avdd: cam0-avdd-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "cam0_avdd";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		gpio = <&tlmm 40 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		startup-delay-us = <1000>;
+		vin-supply = <&vph_pwr>;
+	};
+
+	cam0_dvdd: cam0-dvdd-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "cam0_dvdd";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-boot-on;
+		vin-supply = <&vph_pwr>;
+	};
+
+	cam_iovdd: cam-iovdd-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_iovdd";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-boot-on;
+		vin-supply = <&vph_pwr>;
+	};
+
 	battery: battery {
 		compatible = "simple-battery";
 
@@ -1153,32 +1186,28 @@
 		line-name = "ts-reset";
 	};
 
-	// REVIEW(Krey): Unsure..
-	// cam0_default: cam0_default {
-	// 	rst {
-	// 		pins = "gpio80";
-	// 		function = "gpio";
+	cam0_default: cam0-default-state {
+		rst {
+			pins = "gpio80";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-disable;
+		};
 
-	// 		drive-strength = <2>;
-	// 		bias-disable;
-	// 	};
+		avdd {
+			pins = "gpio40";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-disable;
+		};
 
-	// 	avdd {
-	// 		pins = "gpio40";
-	// 		function = "gpio";
-
-	// 		drive-strength = <2>;
-	// 		bias-disable;
-	// 	};
-
-	// 	mclk0 {
-	// 		pins = "gpio13";
-	// 		function = "cam_mclk";
-
-	// 		drive-strength = <2>;
-	// 		bias-disable;
-	// 	};
-	// };
+		mclk0 {
+			pins = "gpio13";
+			function = "cam_mclk";
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
 
 	// sdc2_default_state: sdc2-default-state {
 	// 	clk-pins {
@@ -1512,45 +1541,45 @@
 			csiphy0_ep: endpoint {
 				clock-lanes = <7>;
 				data-lanes = <0 1 2 3>;
-				// [6.18] imx363_ep 未定义，暂注释
-		// remote-endpoint = <&imx363_ep>;
+				remote-endpoint = <&imx363_ep>;
 			};
 		};
 	};
 };
 
-// &cci_i2c0 {
-// 	camera@10 {
-// 		compatible = "sony,imx363";
-// 		reg = <0x10>;
+&cci_i2c0 {
+	camera@10 {
+		compatible = "sony,imx363";
+		reg = <0x10>;
 
-// 		reset-gpios = <&tlmm 80 0>;
-// 		pinctrl-names = "default";
-// 		pinctrl-0 = <&cam0_default>;
+		reset-gpios = <&tlmm 80 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam0_default>;
 
-// 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
-// 		clock-names = "xvclk";
-// 		clock-frequency = <24000000>;
+		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
+		clock-names = "xvclk";
+		clock-frequency = <24000000>;
 
-// 		vif-supply = <&cam_iovdd>;
-// 		vana-supply = <&cam0_avdd>;
-// 		vdig-supply = <&cam0_dvdd>;
+		/* imx363 驱动：vana + vdig 是必选（devm_regulator_bulk_get），vif 为可选 */
+		vif-supply = <&cam_iovdd>;
+		vana-supply = <&cam0_avdd>;
+		vdig-supply = <&cam0_dvdd>;
 
-// 		orientation = <1>;
-// 		rotation = <270>;
+		orientation = <1>;
+		rotation = <270>;
 
-// 		status = "okay";
+		status = "okay";
 
-// 		port {
-// 			imx363_ep: endpoint {
-// 				clock-lanes = <1>;
-// 				data-lanes = <1 2 3 4>;
-// 				link-frequencies = /bits/ 64 <636000000>;
-// 				remote-endpoint = <&csiphy0_ep>;
-// 			};
-// 		};
-// 	};
-// };
+		port {
+			imx363_ep: endpoint {
+				clock-lanes = <1>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <636000000>;
+				remote-endpoint = <&csiphy0_ep>;
+			};
+		};
+	};
+};
 
 /*
  * 传感器：小米8（dipper）三颗都在主线支持范围内，不需要移植驱动。
@@ -1577,5 +1606,27 @@
 	bmp285@77 {
 		compatible = "bosch,bmp285";
 		reg = <0x77>;
+	};
+};
+
+/*
+ * NFC：小米8 是高通 NQ 封装下的 NXP PN553（NCI 协议），
+ * 硬件参数取自官方 dipper-p0.dtsi 的 qcom,nq-nci 节点：
+ *   IRQ=tlmm63  VEN=tlmm128  FIRM=tlmm88
+ * 主线没有 qcom,nq-nci 驱动，改走通用 NXP NCI 驱动 nxp,nxp-nci-i2c（NCI 协议层通用）。
+ */
+&i2c3 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	nfc: nxp-nci@28 {
+		compatible = "nxp,nxp-nci-i2c";
+		reg = <0x28>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <63 1>;	/* IRQ_TYPE_EDGE_RISING */
+
+		enable-gpios = <&tlmm 128 GPIO_ACTIVE_HIGH>;
+		firmware-gpios = <&tlmm 88 GPIO_ACTIVE_HIGH>;
 	};
 };

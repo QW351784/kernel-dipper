@@ -152,6 +152,10 @@ jobs:
             --enable AK8975 \
             --enable BMP280 \
             --enable BMP280_I2C \
+            --enable NFC \
+            --enable NFC_NCI \
+            --enable NFC_NXP_NCI \
+            --enable NFC_NXP_NCI_I2C \
             --enable REGULATOR_QCOM_SPMI \
             --enable QCOM_RPMH \
             --enable ARM_QCOM_CPUFREQ_HW \
