@@ -1378,7 +1378,12 @@
 		"RX_BIAS", "MCLK",
 		"AMIC1", "MIC BIAS1",
 		"AMIC2", "MIC BIAS2",
-		"AMIC3", "MIC BIAS3";
+		"AMIC3", "MIC BIAS3",
+		/* 外放：官方 dipper 音频 overlay 就是 "hifi amp" 接 LINEOUT1/LINEOUT2，
+		 * 本机没有 ti,tas2559（那是 POCO F1 的），所以走 codec 模拟直出
+		 */
+		"Left Spk", "LINEOUT1",
+		"Left Spk", "LINEOUT2";
 
 	mm1-dai-link {
 		link-name = "MultiMedia1";
@@ -1398,22 +1403,6 @@
 		link-name = "MultiMedia3";
 		cpu {
 			sound-dai = <&q6asmdai  MSM_FRONTEND_DAI_MULTIMEDIA3>;
-		};
-	};
-
-	/* 外放：TI TAS2559 smart PA，走 QUAT_MI2S（与上面的 pinctrl 一致） */
-	spk-dai-link {
-		link-name = "TAS2559 Playback";
-		cpu {
-			sound-dai = <&q6afedai QUAT_MI2S_RX>;
-		};
-
-		platform {
-			sound-dai = <&q6routing>;
-		};
-
-		codec {
-			sound-dai = <&tas2559_codec 0>;
 		};
 	};
 
