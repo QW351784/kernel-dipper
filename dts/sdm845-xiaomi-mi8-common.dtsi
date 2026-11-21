@@ -1551,3 +1551,31 @@
 // 		};
 // 	};
 // };
+
+/*
+ * 传感器：小米8（dipper）三颗都在主线支持范围内，不需要移植驱动。
+ *   加速度/陀螺  invensense,icm20690  → drivers/iio/imu/inv_mpu6050（of_match 已含 icm20690）
+ *   电子罗盘    asahi-kasei,ak09918   → drivers/iio/magnetometer/ak8975.c（已含该 ID）
+ *   气压计      bosch,bmp285          → drivers/iio/pressure/bmp280（BMP285 与 BMP280 寄存器兼容，靠 ID 补丁复用）
+ * 总线按高通参考设计的 se6（i2c@898000）先接；真机 i2cdetect 不对再调总线号。
+ */
+&i2c6 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	icm20690@68 {
+		compatible = "invensense,icm20690";
+		reg = <0x68>;
+		/* 中断线暂不接，驱动可退化到轮询；真机确认 GPIO 后补 interrupts */
+	};
+
+	ak09918@c {
+		compatible = "asahi-kasei,ak09918";
+		reg = <0x0c>;
+	};
+
+	bmp285@77 {
+		compatible = "bosch,bmp285";
+		reg = <0x77>;
+	};
+};

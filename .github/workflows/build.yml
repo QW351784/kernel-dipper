@@ -83,6 +83,20 @@ jobs:
             printf '\nconfig BATTERY_PMI8998_FG\n\ttristate "Qualcomm PMI8998 PMIC fuel gauge driver"\n\tdepends on MFD_SPMI_PMIC\n\thelp\n\t  PMI8998 fuel gauge on Xiaomi Mi 8 (dipper).\n' >> kernel/drivers/power/supply/Kconfig
           grep -q "BATTERY_PMI8998_FG" kernel/drivers/power/supply/Makefile || \
             echo 'obj-$(CONFIG_BATTERY_PMI8998_FG) += pmi8998_fg.o' >> kernel/drivers/power/supply/Makefile
+          # 传感器：BMP285 气压计（主线 bmp280 驱动只认 bmp280，BMP285 寄存器兼容，补一条 ID）
+          python3 - <<'PY'
+          p = 'kernel/drivers/iio/pressure/bmp280-i2c.c'
+          s = open(p, encoding='utf-8').read()
+          if 'bosch,bmp285' not in s:
+              old = '{ .compatible = "bosch,bmp280", .data = &bmp280_chip_info },'
+              new = old + '\n\t{ .compatible = "bosch,bmp285", .data = &bmp280_chip_info },'
+              if old in s:
+                  s = s.replace(old, new, 1)
+                  open(p, 'w', encoding='utf-8').write(s)
+                  print('bmp285: of_match id added')
+              else:
+                  print('WARNING: bmp280 of_match not found')
+          PY
 
       - name: Patch q6v5 to wait for /vendor
         run: |
@@ -131,6 +145,13 @@ jobs:
             --enable MFD_SPMI_PMIC \
             --enable IIO \
             --enable BATTERY_PMI8998_FG \
+            --enable INV_MPU6050_I2C \
+            --enable INV_MPU6050 \
+            --enable IIO_BUFFER \
+            --enable IIO_TRIGGERED_BUFFER \
+            --enable AK8975 \
+            --enable BMP280 \
+            --enable BMP280_I2C \
             --enable REGULATOR_QCOM_SPMI \
             --enable QCOM_RPMH \
             --enable ARM_QCOM_CPUFREQ_HW \
