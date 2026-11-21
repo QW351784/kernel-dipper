@@ -77,6 +77,12 @@ jobs:
             printf '\nconfig ION_COMPAT\n\ttristate "ION compatibility shim over DMA-BUF"\n\tdepends on DMA_SHARED_BUFFER\n\thelp\n\t  Recreates legacy /dev/ion on top of DMA-BUF.\n' >> kernel/drivers/misc/Kconfig
           grep -q "CONFIG_ION_COMPAT" kernel/drivers/misc/Makefile || \
             printf '\nobj-$(CONFIG_ION_COMPAT) += ion_compat.o\n' >> kernel/drivers/misc/Makefile
+          # 电量计：PMI8998 FG（6.18 主线不认 qcom,pmi8998-fg，用 sdm845 社区补丁的驱动）
+          cp -v drivers/power/supply/pmi8998_fg.c kernel/drivers/power/supply/
+          grep -q "config BATTERY_PMI8998_FG" kernel/drivers/power/supply/Kconfig || \
+            printf '\nconfig BATTERY_PMI8998_FG\n\ttristate "Qualcomm PMI8998 PMIC fuel gauge driver"\n\tdepends on MFD_SPMI_PMIC\n\thelp\n\t  PMI8998 fuel gauge on Xiaomi Mi 8 (dipper).\n' >> kernel/drivers/power/supply/Kconfig
+          grep -q "BATTERY_PMI8998_FG" kernel/drivers/power/supply/Makefile || \
+            echo 'obj-$(CONFIG_BATTERY_PMI8998_FG) += pmi8998_fg.o' >> kernel/drivers/power/supply/Makefile
 
       - name: Patch q6v5 to wait for /vendor
         run: |
@@ -124,6 +130,7 @@ jobs:
             --enable POWER_SUPPLY \
             --enable MFD_SPMI_PMIC \
             --enable IIO \
+            --enable BATTERY_PMI8998_FG \
             --enable REGULATOR_QCOM_SPMI \
             --enable QCOM_RPMH \
             --enable ARM_QCOM_CPUFREQ_HW \
@@ -181,7 +188,7 @@ jobs:
             --set-str LOCALVERSION "-MI8-ACK618"
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           echo "=== 关键配置确认 ==="
-          grep -E "^(CONFIG_(CHARGER_QCOM_SMB2|POWER_SUPPLY|MFD_SPMI_PMIC|IIO|TOUCHSCREEN_STMFTS|EROFS_FS|ANDROID_BINDERFS|ANDROID_BINDER_IPC|DM_VERITY|ATH10K|QCOM_Q6V5_MSS|QCOM_SMBB|LOCALVERSION|DRM_PANEL_SAMSUNG_EA8074|REGULATOR_QCOM_LABIBB|VIDEO_IMX363|DMABUF_HEAPS|DMABUF_HEAPS_CMA|ION_COMPAT|INPUT_FINGERPRINT)=|# CONFIG_(DRM_PANEL_SAMSUNG_EA8074|REGULATOR_QCOM_LABIBB|VIDEO_IMX363) is not set)" .config
+          grep -E "^(CONFIG_(CHARGER_QCOM_SMB2|BATTERY_PMI8998_FG|POWER_SUPPLY|MFD_SPMI_PMIC|IIO|TOUCHSCREEN_STMFTS|EROFS_FS|ANDROID_BINDERFS|ANDROID_BINDER_IPC|DM_VERITY|ATH10K|QCOM_Q6V5_MSS|QCOM_SMBB|LOCALVERSION|DRM_PANEL_SAMSUNG_EA8074|REGULATOR_QCOM_LABIBB|VIDEO_IMX363|DMABUF_HEAPS|DMABUF_HEAPS_CMA|ION_COMPAT|INPUT_FINGERPRINT)=|# CONFIG_(DRM_PANEL_SAMSUNG_EA8074|REGULATOR_QCOM_LABIBB|VIDEO_IMX363) is not set)" .config
           echo "=== 音频/蓝牙/WiFi 全链 ==="
           grep -E "^CONFIG_(SOUND|SND|SND_SOC|SND_SOC_SDM845|SND_SOC_QDSP6|SND_SOC_WCD934X|QCOM_APR|SLIMBUS|MFD_WCD934X|SOUNDWIRE|BT|BT_QCA|BT_HCIUART|BT_HCIUART_QCA|ATH10K|ATH10K_PCI|MAC80211|CFG80211)=" .config
           echo "=== 显示/存储/远程处理器 ==="
